@@ -1,50 +1,49 @@
 import { NextResponse } from 'next/server';
-import db from '@/module'
+import db from '@/module'; 
+import { v4 as uuidv4 } from 'uuid'; 
 
-// 申し込みを受け付ける (POST)
-export async function POST(req) {
+export async function POST(request) {
   try {
-    const body = await req.json();
-    const { applicant_id, exam_name } = body;
+    const body = await request.json();
+    // フロントエンドから class_id も受け取る必要があります
+    const { applicant_id, session_id, class_id } = body;
+
+    // バリデーション: class_id も必須チェックに追加
+    if (!applicant_id || !session_id || !class_id) {
+      return NextResponse.json(
+        { message: '必要な情報（ID）が不足しています' },
+        { status: 400 }
+      );
+    }
+
+    // ID生成: char(32) に合わせるため、UUIDのハイフンを除去します
+    const application_id = uuidv4().replace(/-/g, '');
 
     // データベースに保存
-    const query = `INSERT INTO applications (applicant_id, exam_name) VALUES (?, ?)`;
-    await db.execute(query, [applicant_id, exam_name]);
-
-    return NextResponse.json({ message: "申し込み完了" });
-  } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-}import { NextResponse } from 'next/server';
-import db from '@/db';
-import { v4 as uuidv4 } from 'uuid'; // ★UUIDを作るライブラリを使いたい
-
-// もし uuid がインストールされていなければ、npm install uuid してください
-// 面倒なら crypto.randomUUID() でもOKです（以下は標準機能を使う版）
-
-export async function POST(req) {
-  try {
-    const body = await req.json();
-    const { applicant_id, session_id } = body; // ★受け取るデータが変わりました
-
-    // application_id を自動生成 (ランダムな文字列)
-    const application_id = crypto.randomUUID().replace(/-/g, ''); // ハイフンを消して32文字にする
-
+    // apply_datetime と lottery_status はデフォルト値があるので指定しません
     const query = `
-      INSERT INTO application 
-      (application_id, applicant_id, session_id, lottery_status) 
-      VALUES (?, ?, ?, 'PENDING')
+      INSERT INTO application (application_id, applicant_id, class_id, session_id)
+      VALUES (?, ?, ?, ?)
     `;
     
-    // class_id は一旦 NULL で進めます（ログでも NULL OK になっていたため）
-    await db.execute(query, [application_id, applicant_id, session_id]);
+    await db.execute(query, [application_id, applicant_id, class_id, session_id]);
 
-    return NextResponse.json({ message: "申し込み完了" });
+    return NextResponse.json({ message: '申し込みが完了しました' }, { status: 201 });
+
   } catch (error) {
-    // 同じ授業に2回申し込んだ場合のエラー処理
+    console.error('Application Error:', error);
+    
+    // 重複エラー (ERROR 1062)
     if (error.code === 'ER_DUP_ENTRY') {
-       return NextResponse.json({ error: "すでにこの授業には申し込んでいます" }, { status: 400 });
+      return NextResponse.json(
+        { message: 'すでに申し込み済みです' },
+        { status: 409 }
+      );
     }
-    return NextResponse.json({ error: error.message }, { status: 500 });
+
+    return NextResponse.json(
+      { message: 'サーバーエラーが発生しました', error: error.message },
+      { status: 500 }
+    );
   }
 }

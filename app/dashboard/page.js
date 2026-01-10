@@ -46,19 +46,41 @@ export default function UserDashboard() {
 
       {/* --- セクション2: 申込情報(左) と ボタン(右) --- */}
       <div style={styles.bottomArea}>
-        
+
         {/* 左側: 現在の申し込み情報 */}
         <div style={styles.statusBox}>
           <h3 style={styles.subTitle}>現在の申し込み状況</h3>
-          <p>現在、申し込み済みの試験はありません。</p>
-          {/* ↑ 後でここもデータベースから取れるようにしましょう */}
+          {applications.length === 0 ? (
+          // 申し込みがない場合
+          <div style={styles.emptyBox}>
+            <p>現在、申し込み済みの授業はありません。</p>
+          </div>
+        ) : (
+          // 申し込みがある場合：リスト表示
+          <div style={styles.grid}>
+            {applications.map((app) => (
+              <div key={app.id} style={styles.card}>
+                <div style={{...styles.statusLabel, backgroundColor: getStatusColor(app.status)}}>
+                  {getStatusText(app.status)}
+                </div>
+                <h3 style={styles.cardTitle}>{app.className}</h3>
+                <div style={styles.cardDetail}>
+                  <p>📅 日付：{app.date}</p>
+                  <p>⏰ 時間：{app.time}</p>
+                  <p>🏫 場所：{app.room || '未定'}</p>
+                  <p>👨‍🏫 担当：{app.teacher || '-'}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
         </div>
 
         {/* 右側: 申し込みボタン */}
         <div style={styles.actionBox}>
           <button 
             style={styles.applyButton}
-            onClick={() => router.push(`/application/new?id=${user.applicant_id}`)}
+            onClick={() => router.push('/dashboard/select-class')}
           >
             新規申し込みへ進む
           </button>
