@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import db from '../../../db'; 
+import db from '@/module'
 
 // POST: 生徒登録
 export async function POST(request) {

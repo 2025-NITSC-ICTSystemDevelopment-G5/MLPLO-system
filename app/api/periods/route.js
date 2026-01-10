@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import db from '../../../db';
+import db from '@/module'
 
 // GET: 期間取得
 export async function GET() {
