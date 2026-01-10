@@ -1,32 +1,48 @@
 import { NextResponse } from 'next/server';
-import db from '@/module'
+import db from '@/module';
+import bcrypt from 'bcryptjs';
 
 export async function POST(request) {
-    try {
-        const { login_id, password } = await request.json();
+  try {
+    const { login_id, password } = await request.json();
 
-        const query = `
-            SELECT admin_id, login_id 
-            FROM admins 
-            WHERE login_id = ? AND password = ?
-        `;
-        
-        const [rows] = await db.execute(query, [login_id, password]);
+    // 1. IDで検索
+    const query = 'SELECT * FROM admins WHERE admin_id = ?';
+    const [rows] = await db.execute(query, [login_id]);
 
-        if (rows.length > 0) {
-            return NextResponse.json({
-                success: true,
-                message: "ログインに成功しました",
-                admin: rows[0]
-            });
-        } else {
-            return NextResponse.json({ 
-                success: false, 
-                error: "ログインIDまたはパスワードが正しくありません" 
-            }, { status: 401 });
-        }
-    } catch (err) {
-        console.error("Database Error:", err);
-        return NextResponse.json({ error: "サーバーエラーが発生しました" }, { status: 500 });
+    if (rows.length === 0) {
+      return NextResponse.json(
+        { message: 'IDまたはパスワードが間違っています' },
+        { status: 401 }
+      );
     }
+
+    const adminUser = rows[0];
+
+    // 2. パスワードの照合 (bcryptで正しく比較)
+    // ★ここを修正: 特例をなくし、本来の比較のみにします
+    const isMatch = await bcrypt.compare(password, adminUser.password_hash);
+
+    if (!isMatch) {
+      return NextResponse.json(
+        { message: 'IDまたはパスワードが間違っています' },
+        { status: 401 }
+      );
+    }
+
+    // 3. ログイン成功
+    return NextResponse.json({
+      success: true,
+      admin: {
+        admin_id: adminUser.admin_id
+      }
+    });
+
+  } catch (error) {
+    console.error('Admin Login Error:', error);
+    return NextResponse.json(
+      { message: 'サーバーエラーが発生しました' },
+      { status: 500 }
+    );
+  }
 }

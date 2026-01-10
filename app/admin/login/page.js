@@ -22,7 +22,6 @@ export default function AdminLogin() {
       });
 
       if (!res.ok) {
-        // 401などのエラーハンドリング
         if (res.status === 401) {
           setError('IDまたはパスワードが正しくありません');
         } else {
@@ -32,9 +31,16 @@ export default function AdminLogin() {
       }
 
       // 成功時
+      const data = await res.json();
+      
+      // 管理者情報を保存 (IDのみ)
+      localStorage.setItem('currentAdmin', JSON.stringify(data.admin));
+
+      // ダッシュボードへ移動
       router.push('/admin/dashboard');
 
     } catch (err) {
+      console.error(err);
       setError('通信エラーが発生しました');
     }
   };
