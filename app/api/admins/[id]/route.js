@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import db from '../../../../db'; // 階層が深いため ../ を一つ追加
+import db from '@/module'
 
 // GET: 取得
 export async function GET(request, { params }) {

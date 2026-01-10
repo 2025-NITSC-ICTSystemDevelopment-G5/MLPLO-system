@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import db from '../../../../db'; 
+import db from '@/module'
 
 const sanitizeId = (id) => String(id).replace(/-/g, '');
 

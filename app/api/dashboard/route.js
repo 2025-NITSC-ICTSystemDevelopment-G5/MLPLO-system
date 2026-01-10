@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import db from '@/db'; // ここならdbをインポートしてOK！
+import db from '@/module'
 
 export async function GET() {
   try {

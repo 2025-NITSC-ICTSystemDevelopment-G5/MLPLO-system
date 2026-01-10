@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import db from '../../../../db';
+import db from '@/module'
 
 // PUT: 更新
 export async function PUT(request, { params }) {
