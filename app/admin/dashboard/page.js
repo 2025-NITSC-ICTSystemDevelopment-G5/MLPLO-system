@@ -1,8 +1,37 @@
 'use client';
 
+import { useState, useEffect } from 'react'; // ★追加
 import Link from 'next/link';
 
 export default function AdminDashboard() {
+  // ★追加: 期間データを保存する状態変数
+  const [period, setPeriod] = useState({
+    start: '読み込み中...',
+    end: '読み込み中...'
+  });
+
+  // ★追加: 画面表示時にAPIから期間を取得
+  useEffect(() => {
+    const fetchPeriod = async () => {
+      try {
+        const res = await fetch('/api/admins/period');
+        if (res.ok) {
+          const data = await res.json();
+          // DBの日付(yyyy-MM-dd)を、表示用(yyyy/MM/dd)に見やすく変換
+          setPeriod({
+            start: data.application_start ? data.application_start.replace(/-/g, '/') : '未設定',
+            end: data.application_end ? data.application_end.replace(/-/g, '/') : '未設定'
+          });
+        }
+      } catch (error) {
+        console.error("期間取得エラー:", error);
+        setPeriod({ start: '取得エラー', end: '取得エラー' });
+      }
+    };
+
+    fetchPeriod();
+  }, []);
+
   return (
     <div className="min-h-screen bg-gray-800 text-white p-6 relative">
       <div className="max-w-4xl mx-auto pb-16">
@@ -13,17 +42,19 @@ export default function AdminDashboard() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           
-          {/* 申し込み受付期間 (表示のみ) */}
+          {/* 申し込み受付期間 (APIから取得した値を表示) */}
           <div className="bg-gray-700 p-6 rounded-lg shadow-lg">
             <h2 className="text-lg font-bold mb-4 border-b border-gray-600 pb-2">現在の受付期間</h2>
             <div className="space-y-4 mb-6">
               <div>
                 <span className="block text-xs text-gray-400 mb-1">開始日時</span>
-                <p className="text-xl font-mono font-bold">2025/08/01 10:00</p>
+                {/* ★修正: 変数を表示 */}
+                <p className="text-xl font-mono font-bold">{period.start}</p>
               </div>
               <div>
                 <span className="block text-xs text-gray-400 mb-1">終了日時</span>
-                <p className="text-xl font-mono font-bold">2025/08/15 17:00</p>
+                {/* ★修正: 変数を表示 */}
+                <p className="text-xl font-mono font-bold">{period.end}</p>
               </div>
             </div>
             <Link href="/admin/period" className="block w-full bg-blue-600 py-2 rounded hover:bg-blue-500 font-bold transition text-center text-sm">

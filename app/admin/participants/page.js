@@ -1,22 +1,66 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
 export default function AdminParticipants() {
-  const [selectedClass, setSelectedClass] = useState("国語");
+  // データ管理用ステート
+  const [selectedClassId, setSelectedClassId] = useState("ALL"); 
+  const [participants, setParticipants] = useState([]); // 当選者データのみ
+  const [classes, setClasses] = useState([]); 
+  const [isLoading, setIsLoading] = useState(true);
 
-  // モックデータ（当選者のみ）
-  const participants = [
-    { id: 1, name: "田中 太郎", guardian: "田中 正雄", school: "○○中学校", grade: "3" },
-    { id: 2, name: "佐藤 花子", guardian: "佐藤 花実", school: "××中学校", grade: "3" },
-  ];
+  // 画面表示時にデータを取得
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // 1. 授業リストを取得
+        const classRes = await fetch('/api/classes');
+        const classData = classRes.ok ? await classRes.json() : [];
+        setClasses(classData);
+
+        // 2. 全申込者リストを取得し、「当選者」のみに絞り込む
+        const res = await fetch('/api/admins/applicants');
+        if (res.ok) {
+          const allData = await res.json();
+          // ★ここでフィルタリング: lottery_status が 'WIN' の人のみ抽出
+          const winners = allData.filter(app => app.lottery_status === 'WIN');
+          setParticipants(winners);
+        }
+      } catch (error) {
+        console.error("データ取得エラー:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // 選択された授業でフィルタリング
+  const filteredParticipants = selectedClassId === "ALL" 
+    ? participants 
+    : participants.filter(app => app.class_id === selectedClassId);
+
+  // 選択中の授業名
+  const currentClassName = selectedClassId === "ALL" 
+    ? "全科目" 
+    : classes.find(c => c.id === selectedClassId)?.name || "不明な授業";
+
+  // CSVダウンロード処理（当選者リスト）
+  const handleDownloadCsv = () => {
+    // ★重要: mode=winners で当選者のみ出力
+    window.location.href = '/api/management/export/csv?mode=winners';
+  };
+
+  if (isLoading) return <div className="min-h-screen bg-gray-100 p-10 text-center">読み込み中...</div>;
 
   return (
     <div className="min-h-screen bg-gray-100 p-6">
       <div className="max-w-6xl mx-auto">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-2xl font-bold text-blue-800">参加者一覧 (当選者のみ)</h1>
+          {/* タイトルを変更 */}
+          <h1 className="text-2xl font-bold text-gray-800">参加者一覧 (当選者のみ)</h1>
           <Link href="/admin/dashboard" className="text-sm text-gray-500 hover:text-gray-800 hover:underline">
             管理者メニューへ戻る
           </Link>
@@ -24,60 +68,89 @@ export default function AdminParticipants() {
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-start">
           
+          {/* 左サイドバー: 科目選択 */}
           <div className="md:col-span-1 bg-white rounded shadow overflow-hidden sticky top-6">
-            <div className="bg-blue-700 text-white p-3 font-bold text-center">
-              科目選択
+            {/* 色を青系（参加者カラー）に変更 */}
+            <div className="bg-blue-800 text-white p-3 font-bold text-center">
+              参加科目選択
             </div>
             <div className="p-2 space-y-1">
-              {["国語", "数学", "電気回路"].map((cls) => (
+              <button
+                onClick={() => setSelectedClassId("ALL")}
+                className={`w-full text-left px-4 py-3 rounded transition ${
+                  selectedClassId === "ALL" 
+                    ? 'bg-blue-100 text-blue-900 font-bold border-l-4 border-blue-600' 
+                    : 'hover:bg-gray-50 text-gray-700'
+                }`}
+              >
+                全科目表示
+              </button>
+
+              {classes.map((cls) => (
                 <button
-                  key={cls}
-                  onClick={() => setSelectedClass(cls)}
+                  key={cls.id}
+                  onClick={() => setSelectedClassId(cls.id)}
                   className={`w-full text-left px-4 py-3 rounded transition ${
-                    selectedClass === cls 
-                      ? 'bg-blue-100 text-blue-700 font-bold border-l-4 border-blue-600' 
-                      : 'hover:bg-blue-50 text-gray-700'
+                    selectedClassId === cls.id 
+                      ? 'bg-blue-100 text-blue-900 font-bold border-l-4 border-blue-600' 
+                      : 'hover:bg-gray-50 text-gray-700'
                   }`}
                 >
-                  {cls}
+                  {cls.name}
                 </button>
               ))}
             </div>
           </div>
 
+          {/* 右メインエリア: 一覧テーブル */}
           <div className="md:col-span-3 bg-white p-6 rounded shadow relative min-h-[500px] flex flex-col">
             <div className="flex justify-between items-end mb-4 border-b pb-2">
-              <h2 className="text-xl font-bold text-gray-800">{selectedClass} の参加予定者</h2>
+              <h2 className="text-xl font-bold text-gray-800">{currentClassName} の参加者</h2>
               <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded text-sm font-bold">
-                当選者 {participants.length} 名
+                参加予定 {filteredParticipants.length} 名
               </span>
             </div>
 
             <div className="overflow-x-auto flex-grow">
               <table className="w-full border-collapse text-sm">
                 <thead>
-                  <tr className="bg-blue-50 border-b border-blue-100">
+                  <tr className="bg-gray-50 border-b border-gray-200">
                     <th className="p-3 text-left font-bold text-gray-600">氏名</th>
                     <th className="p-3 text-left font-bold text-gray-600">保護者氏名</th>
                     <th className="p-3 text-left font-bold text-gray-600">学校名</th>
                     <th className="p-3 text-center font-bold text-gray-600">学年</th>
+                    {selectedClassId === "ALL" && <th className="p-3 text-left font-bold text-gray-600">参加授業</th>}
                   </tr>
                 </thead>
                 <tbody>
-                  {participants.map((p) => (
-                    <tr key={p.id} className="border-b border-gray-100 hover:bg-blue-50 transition">
-                      <td className="p-3 font-medium">{p.name}</td>
-                      <td className="p-3 text-gray-600">{p.guardian}</td>
-                      <td className="p-3 text-gray-600">{p.school}</td>
-                      <td className="p-3 text-center text-gray-600">{p.grade}</td>
+                  {filteredParticipants.length === 0 ? (
+                    <tr>
+                      <td colSpan="5" className="p-6 text-center text-gray-400">
+                        参加者（当選者）はまだいません。<br/>
+                        <span className="text-xs">※抽選を実行していないか、当選者がいない可能性があります。</span>
+                      </td>
                     </tr>
-                  ))}
+                  ) : (
+                    filteredParticipants.map((p, index) => (
+                      <tr key={index} className="border-b border-gray-100 hover:bg-gray-50 transition">
+                        <td className="p-3 font-medium">{p.student_name}</td>
+                        <td className="p-3 text-gray-600">{p.parent_name}</td>
+                        <td className="p-3 text-gray-600">{p.school_name}</td>
+                        <td className="p-3 text-center text-gray-600">{p.grade}</td>
+                        {selectedClassId === "ALL" && <td className="p-3 text-gray-600 text-xs">{p.class_name}</td>}
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
 
             <div className="mt-8 flex justify-end">
-              <button className="bg-green-600 text-white font-bold py-3 px-6 rounded hover:bg-green-700 shadow-md flex items-center transition">
+              <button 
+                onClick={handleDownloadCsv}
+                // ボタンも青系に変更
+                className="bg-blue-800 text-white font-bold py-3 px-6 rounded hover:bg-blue-700 shadow-md flex items-center transition"
+              >
                 <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                 参加者リストCSVダウンロード
               </button>

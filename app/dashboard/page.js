@@ -43,7 +43,7 @@ export default function UserDashboard() {
     router.push('/');
   };
 
-  // ステータス表示用ヘルパー（ダークモード用に色調整）
+  // ステータス表示用ヘルパー
   const getStatusBadge = (status) => {
     switch(status) {
       case 'WIN': 
@@ -55,7 +55,6 @@ export default function UserDashboard() {
     }
   };
 
-  // データ読み込み中
   if (isLoading) {
     return <div className="min-h-screen bg-gray-800 text-white p-6 flex items-center justify-center">読み込み中...</div>;
   }
@@ -96,9 +95,10 @@ export default function UserDashboard() {
           </div>
 
           {/* --- セクション2: 下部エリア (2カラム) --- */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* items-start を追加して、左側の高さが変わっても右側が上揃えになるように固定 */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
             
-            {/* 左側: 現在の申し込み状況 */}
+            {/* 左側: 現在の申し込み状況 (カードUIのまま) */}
             <div className="bg-gray-700 p-6 rounded-lg shadow-lg">
               <h2 className="text-lg font-bold mb-4 border-b border-gray-600 pb-2">現在の申し込み状況</h2>
               
@@ -127,11 +127,12 @@ export default function UserDashboard() {
             </div>
 
             {/* 右側: 新規申し込みボタンエリア */}
-            <div className="bg-gray-700 p-6 rounded-lg shadow-lg flex flex-col justify-center">
-              <h2 className="text-lg font-bold mb-4 text-center">授業への参加申し込み</h2>
+            {/* カード風のスタイル（bg-gray-700など）を削除し、透明な背景にしました */}
+            <div className="flex flex-col">
+              <h2 className="text-lg font-bold mb-4 text-gray-200 pl-1">授業への参加申し込み</h2>
               <button 
                 onClick={() => router.push('/dashboard/select-class')}
-                className="block w-full bg-blue-600 py-4 rounded-lg hover:bg-blue-500 font-bold transition shadow-md text-center"
+                className="block w-full bg-blue-600 py-4 rounded-lg hover:bg-blue-500 font-bold transition shadow-md text-center text-white"
               >
                 新規申し込みへ進む
               </button>
