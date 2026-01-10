@@ -1,65 +1,87 @@
 import { NextResponse } from 'next/server';
-import db from '@/module'; 
+import db from '@/module';
 
-export const dynamic = 'force-dynamic';
-
+// GET: 授業一覧を取得
 export async function GET() {
   try {
     const query = `
       SELECT 
-        c.class_id,
-        c.class_name,
-        c.description,       
-        c.summary_pdf_path,  
-        c.teacher_name,      -- 先生の名前も取得
-        c.room_name,         -- 教室名も取得
-        s.session_id,
-        s.class_date,
-        s.start_time,
+        c.class_id, 
+        c.class_name, 
+        c.teacher_name, 
+        c.room_name, 
+        c.max_capacity,
+        c.description,
+        s.class_date, 
+        s.start_time, 
         s.end_time
       FROM mock_class c
-      JOIN mock_session s ON c.class_id = s.class_id
-      ORDER BY c.class_id, s.class_date, s.start_time
+      LEFT JOIN mock_session s ON c.class_id = s.class_id
+      ORDER BY c.created_at DESC
     `;
-    
     const [rows] = await db.execute(query);
+    return NextResponse.json(rows);
+  } catch (error) {
+    console.error('取得エラー:', error);
+    return NextResponse.json({ message: '取得エラー' }, { status: 500 });
+  }
+}
 
-    const classesMap = new Map();
+// POST: 新規授業を登録
+export async function POST(request) {
+  try {
+    const body = await request.json();
+    const { 
+      class_id, 
+      class_name, 
+      teacher_name, 
+      room_name, 
+      max_capacity, 
+      description,
+      sessions 
+    } = body;
 
-    rows.forEach(row => {
-      if (!classesMap.has(row.class_id)) {
-        classesMap.set(row.class_id, {
-          id: row.class_id,
-          name: row.class_name,
-          // DBにdescriptionがない場合のエラー回避
-          description: row.description || `担当: ${row.teacher_name} (場所: ${row.room_name})`, 
-          pdfLink: row.summary_pdf_path || '#',
-          sessions: []
-        });
-      }
+    // 1. mock_class に保存
+    // ★修正: 値が undefined の場合は null を入れるように "?? null" を追加しました
+    await db.execute(
+      `INSERT INTO mock_class 
+       (class_id, class_name, teacher_name, room_name, max_capacity, description, created_by_admin_id) 
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        class_id, 
+        class_name, 
+        teacher_name ?? null, 
+        room_name ?? null, 
+        max_capacity ?? null, 
+        description ?? null, 
+        'admin'
+      ]
+    );
 
-      // 時間のフォーマット処理
-      const formatTime = (timeStr) => {
-        if (!timeStr) return '';
-        // "10:00:00" → "10:00"
-        return timeStr.toString().substring(0, 5); 
-      };
+    // 2. mock_session に保存
+    if (sessions && sessions.length > 0) {
+      const s = sessions[0]; 
+      // ★修正: こちらも同様に安全対策を追加
+      await db.execute(
+        `INSERT INTO mock_session 
+         (session_id, class_id, class_date, start_time, end_time, max_capacity, current_registrants) 
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+          s.session_id, 
+          class_id, 
+          s.class_date ?? null, 
+          s.start_time ?? null, 
+          s.end_time ?? null, 
+          s.max_capacity ?? null, 
+          0
+        ]
+      );
+    }
 
-      // 日付の処理
-      const dateObj = new Date(row.class_date);
-      const dateStr = dateObj.toLocaleDateString('ja-JP'); 
-
-      classesMap.get(row.class_id).sessions.push({
-        id: row.session_id,
-        label: `${dateStr} ${formatTime(row.start_time)} - ${formatTime(row.end_time)}`
-      });
-    });
-
-    const classesList = Array.from(classesMap.values());
-    return NextResponse.json(classesList);
+    return NextResponse.json({ message: '登録完了' }, { status: 201 });
 
   } catch (error) {
-    console.error('Fetch Classes Error:', error);
-    return NextResponse.json({ message: '取得失敗', error: error.message }, { status: 500 });
+    console.error('登録エラー:', error);
+    return NextResponse.json({ message: '登録エラー' }, { status: 500 });
   }
 }

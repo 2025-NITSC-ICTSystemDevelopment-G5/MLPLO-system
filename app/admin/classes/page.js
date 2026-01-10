@@ -12,6 +12,7 @@ export default function AdminClasses() {
     class_name: '',
     teacher_name: '',
     room_name: '',
+    description: '', // 追加: DBにあるので入力できるようにする
     max_capacity: 30,
     session_date: '',
     start_time: '',
@@ -41,18 +42,17 @@ export default function AdminClasses() {
   const handleRegister = async (e) => {
     e.preventDefault();
     
-    // APIの形式に合わせてデータを整形
-    // ID生成は簡易的なものです
-    const classId = 'CLS' + Math.floor(Math.random() * 10000);
-    const sessionId = 'SES' + Math.floor(Math.random() * 10000);
+    // ★重要: DBが char(32) なので、UUIDのハイフンを取り除いて32文字にする
+    const classId = crypto.randomUUID().replace(/-/g, '');
+    const sessionId = crypto.randomUUID().replace(/-/g, '');
 
     const payload = {
       class_id: classId,
       class_name: newClass.class_name,
       teacher_name: newClass.teacher_name,
       room_name: newClass.room_name,
+      description: newClass.description,
       max_capacity: Number(newClass.max_capacity),
-      created_by_admin_id: 'ADM001', // 仮ID
       // セッション情報を配列で送る
       sessions: [
         {
@@ -76,19 +76,38 @@ export default function AdminClasses() {
         alert('登録しました');
         fetchClasses(); // 一覧を更新
         // フォームリセット
-        setNewClass({ ...newClass, class_name: '', teacher_name: '' });
+        setNewClass({
+          class_name: '',
+          teacher_name: '',
+          room_name: '',
+          description: '',
+          max_capacity: 30,
+          session_date: '',
+          start_time: '',
+          end_time: ''
+        });
       } else {
         alert('登録に失敗しました');
       }
     } catch (err) {
+      console.error(err);
       alert('エラーが発生しました');
     }
   };
 
   const handleDelete = async (classId) => {
     if(!confirm('本当に削除しますか？')) return;
-    await fetch(`/api/classes/${classId}`, { method: 'DELETE' });
-    fetchClasses();
+    
+    try {
+      const res = await fetch(`/api/classes/${classId}`, { method: 'DELETE' });
+      if (res.ok) {
+        fetchClasses();
+      } else {
+        alert('削除に失敗しました');
+      }
+    } catch (err) {
+      alert('通信エラーが発生しました');
+    }
   };
 
   return (
@@ -112,26 +131,42 @@ export default function AdminClasses() {
                   value={newClass.class_name}
                   onChange={e => setNewClass({...newClass, class_name: e.target.value})}
                   className="w-full border p-2 rounded text-black" 
+                  placeholder="例: プログラミング入門"
                 />
               </div>
+              
+              {/* 説明文 (description) 追加 */}
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">担当教職員</label>
-                <input 
-                  type="text" 
-                  value={newClass.teacher_name}
-                  onChange={e => setNewClass({...newClass, teacher_name: e.target.value})}
-                  className="w-full border p-2 rounded text-black" 
+                <label className="block text-sm font-bold text-gray-700 mb-1">授業説明</label>
+                <textarea 
+                  value={newClass.description}
+                  onChange={e => setNewClass({...newClass, description: e.target.value})}
+                  className="w-full border p-2 rounded text-black h-20 text-sm" 
+                  placeholder="授業の概要を入力..."
                 />
               </div>
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">実施場所</label>
-                <input 
-                  type="text" 
-                  value={newClass.room_name}
-                  onChange={e => setNewClass({...newClass, room_name: e.target.value})}
-                  className="w-full border p-2 rounded text-black" 
-                />
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">担当教職員</label>
+                  <input 
+                    type="text" 
+                    value={newClass.teacher_name}
+                    onChange={e => setNewClass({...newClass, teacher_name: e.target.value})}
+                    className="w-full border p-2 rounded text-black" 
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">実施場所</label>
+                  <input 
+                    type="text" 
+                    value={newClass.room_name}
+                    onChange={e => setNewClass({...newClass, room_name: e.target.value})}
+                    className="w-full border p-2 rounded text-black" 
+                  />
+                </div>
               </div>
+
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-1">定員</label>
                 <input 
@@ -143,7 +178,7 @@ export default function AdminClasses() {
               </div>
               
               <div className="bg-gray-50 p-3 rounded">
-                <p className="text-xs font-bold mb-2 text-gray-600">実施日時（最初の1回）</p>
+                <p className="text-xs font-bold mb-2 text-gray-600">実施日時</p>
                 <input 
                   type="date" required
                   value={newClass.session_date}
@@ -179,21 +214,24 @@ export default function AdminClasses() {
                 <thead className="bg-gray-100 border-b">
                   <tr>
                     <th className="px-4 py-3">授業名</th>
-                    <th className="px-4 py-3">担当・場所</th>
-                    <th className="px-4 py-3">日時</th>
+                    <th className="px-4 py-3">詳細</th>
+                    <th className="px-4 py-3">日時・場所</th>
                     <th className="px-4 py-3 text-center">操作</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {classes.map((cls, idx) => (
                     <tr key={idx} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 font-bold text-gray-800">{cls.class_name}</td>
+                      <td className="px-4 py-3 font-bold text-gray-800">
+                        {cls.class_name}
+                        <div className="text-xs text-gray-400 font-normal truncate max-w-[150px]">{cls.description}</div>
+                      </td>
                       <td className="px-4 py-3">
-                        <div>{cls.teacher_name}</div>
-                        <div className="text-xs text-gray-500">{cls.room_name}</div>
+                        <div><span className="text-xs bg-gray-200 px-1 rounded">教員</span> {cls.teacher_name}</div>
+                        <div className="mt-1"><span className="text-xs bg-gray-200 px-1 rounded">定員</span> {cls.max_capacity}名</div>
                       </td>
                       <td className="px-4 py-3 text-xs">
-                        {/* APIの構造上、LEFT JOINされているのでnullチェック */}
+                        <div className="font-bold mb-1">{cls.room_name}</div>
                         {cls.class_date ? (
                            <>
                              {new Date(cls.class_date).toLocaleDateString()} <br/>
@@ -204,15 +242,15 @@ export default function AdminClasses() {
                       <td className="px-4 py-3 text-center">
                         <button 
                           onClick={() => handleDelete(cls.class_id)}
-                          className="text-red-600 hover:underline text-xs"
+                          className="bg-red-100 text-red-600 px-3 py-1 rounded hover:bg-red-200 text-xs font-bold"
                         >
                           削除
                         </button>
                       </td>
                     </tr>
                   ))}
-                  {classes.length === 0 && (
-                    <tr><td colSpan="4" className="p-4 text-center">データがありません</td></tr>
+                  {classes.length === 0 && !loading && (
+                    <tr><td colSpan="4" className="p-8 text-center text-gray-400">登録されている授業はありません</td></tr>
                   )}
                 </tbody>
               </table>
