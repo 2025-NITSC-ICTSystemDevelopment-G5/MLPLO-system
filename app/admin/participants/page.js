@@ -126,8 +126,7 @@ export default function AdminParticipants() {
                   {filteredParticipants.length === 0 ? (
                     <tr>
                       <td colSpan="5" className="p-6 text-center text-gray-400">
-                        参加者（当選者）はまだいません。<br/>
-                        <span className="text-xs">※抽選を実行していないか、当選者がいない可能性があります。</span>
+                        現在、参加者（当選者）はいません<br/>
                       </td>
                     </tr>
                   ) : (

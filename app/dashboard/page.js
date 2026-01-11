@@ -85,7 +85,7 @@ export default function UserDashboard() {
           <div className="bg-gray-700 p-6 rounded-lg shadow-lg">
             <h2 className="text-lg font-bold mb-4 border-b border-gray-600 pb-2">登録情報</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-8">
-              <InfoItem label="ID" value={user.applicant_id} />
+              <InfoItem label="ID" value={user.login_id} />
               <InfoItem label="生徒氏名" value={user.student_name} />
               <InfoItem label="保護者氏名" value={user.parent_name} />
               <InfoItem label="学校名" value={user.school_name} />
