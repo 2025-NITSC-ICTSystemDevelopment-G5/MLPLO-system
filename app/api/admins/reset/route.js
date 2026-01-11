@@ -1,25 +1,28 @@
 import { NextResponse } from 'next/server';
-import db from '@/module'
+import db from '@/module';
 
 export async function POST() {
-    const connection = await db.getConnection();
-    try {
-        await connection.beginTransaction();
+  const connection = await db.getConnection();
+  try {
+    await connection.beginTransaction();
 
-        await connection.execute('SET FOREIGN_KEY_CHECKS = 0');
-        await connection.execute('TRUNCATE TABLE application');
-        await connection.execute('TRUNCATE TABLE mock_session');
-        await connection.execute('TRUNCATE TABLE mock_class');
-        await connection.execute('TRUNCATE TABLE applicants');
-        await connection.execute('TRUNCATE TABLE application_period');
-        await connection.execute('SET FOREIGN_KEY_CHECKS = 1');
+    // 1. 申し込みデータを削除
+    await connection.query("DELETE FROM application");
 
-        await connection.commit();
-        return NextResponse.json({ message: "全てのデータを初期化しました" });
-    } catch (err) {
-        await connection.rollback();
-        return NextResponse.json({ error: "リセットに失敗しました" }, { status: 500 });
-    } finally {
-        connection.release();
-    }
+    // 2. 授業の日時（セッション）を削除
+    await connection.query("DELETE FROM mock_session");
+
+    // 3. 授業データを削除
+    await connection.query("DELETE FROM mock_class");
+
+    await connection.commit();
+    return NextResponse.json({ message: "全データの削除が完了しました。" });
+
+  } catch (error) {
+    await connection.rollback();
+    console.error('Reset Error:', error);
+    return NextResponse.json({ message: "削除中にエラーが発生しました。" }, { status: 500 });
+  } finally {
+    connection.release();
+  }
 }

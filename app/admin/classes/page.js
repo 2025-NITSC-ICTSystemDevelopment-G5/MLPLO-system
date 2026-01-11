@@ -299,11 +299,11 @@ export default function AdminClasses() {
                         </div>
                       </td>
                       <td className="px-4 py-4 align-top text-xs">
-                        <div className="font-bold text-sm text-gray-700 mb-1">📍 {cls.room_name}</div>
+                        <div className="font-bold text-sm text-gray-700 mb-1">場所： {cls.room_name}</div>
                         {cls.class_date ? (
                            <div className="text-gray-600 bg-gray-50 p-1 rounded inline-block border">
-                             📅 {new Date(cls.class_date).toLocaleDateString()} <br/>
-                             ⏰ {cls.start_time?.substring(0,5)} ～ {cls.end_time?.substring(0,5)}
+                             日時： {new Date(cls.class_date).toLocaleDateString()} <br/>
+                              {cls.start_time?.substring(0,5)} ～ {cls.end_time?.substring(0,5)}
                            </div>
                         ) : '日時未定'}
                       </td>
