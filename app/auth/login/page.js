@@ -70,7 +70,6 @@ export default function UserLogin() {
                 value={loginId}
                 onChange={(e) => setLoginId(e.target.value)}
                 className="w-full border border-gray-300 p-3 rounded-lg bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-blue-500 text-black transition-colors"
-                placeholder="例: student001"
                 required
               />
             </div>
@@ -81,7 +80,6 @@ export default function UserLogin() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full border border-gray-300 p-3 rounded-lg bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-blue-500 text-black transition-colors"
-                placeholder="パスワード"
                 required
               />
             </div>

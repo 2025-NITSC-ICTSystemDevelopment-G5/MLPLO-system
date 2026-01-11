@@ -7,39 +7,72 @@ export default function SelectClassPage() {
   const router = useRouter();
   
   const [applicantId, setApplicantId] = useState(null); 
-  const [classes, setClasses] = useState([]); 
-  const [selectedClass, setSelectedClass] = useState(null);
+  const [classes, setClasses] = useState([]); // グループ化した授業データ
+  
+  // 選択状態
+  const [selectedClassId, setSelectedClassId] = useState('');
   const [selectedSessionId, setSelectedSessionId] = useState('');
+  
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // 画面が開いたときにログインチェック & データ取得
   useEffect(() => {
-    // ログイン情報をブラウザから取り出す
     const storedUser = localStorage.getItem('currentUser');
     
     if (!storedUser) {
-      alert("ログインしてください");
+      // 未ログインならログイン画面へ
       router.push('/auth/login');
       return;
     }
 
-    // ログイン情報があればIDをセットする
     const user = JSON.parse(storedUser);
     setApplicantId(user.applicant_id);
 
-    // 授業データも取得
     const fetchClasses = async () => {
       try {
-        const res = await fetch('/api/classes');
+        // キャッシュ無効化で最新データを取得
+        const res = await fetch('/api/classes', { cache: 'no-store' });
         if (!res.ok) throw new Error('データ取得エラー');
         
-        const data = await res.json();
-        setClasses(data);
+        const rawData = await res.json();
         
-        if (data.length > 0) {
-          setSelectedClass(data[0]);
+        // ★重要: APIからのフラットなデータを「授業ごと」にグループ化する
+        const grouped = {};
+        rawData.forEach(item => {
+          // まだその授業がリストになければ作成
+          if (!grouped[item.class_id]) {
+            grouped[item.class_id] = {
+              id: item.class_id,
+              name: item.class_name,
+              description: item.description,
+              sessions: []
+            };
+          }
+          // セッション（日時）情報があれば追加
+          if (item.session_id) {
+            // 表示用の日時文字列を作成
+            const dateStr = item.class_date_str || item.class_date; // APIによってキー名が違う場合に対応
+            const timeStr = (item.start_time_str || item.start_time || '').substring(0, 5);
+            
+            grouped[item.class_id].sessions.push({
+              id: item.session_id,
+              label: `${dateStr} ${timeStr}～`,
+              // ソート用に生の日付も持っておく
+              sortKey: `${dateStr} ${timeStr}`
+            });
+          }
+        });
+
+        // オブジェクトを配列に変換
+        const classList = Object.values(grouped);
+        setClasses(classList);
+        
+        // 最初の一つを選択状態にする（任意）
+        if (classList.length > 0) {
+          setSelectedClassId(classList[0].id);
         }
+
       } catch (error) {
         console.error(error);
         alert('授業データの読み込みに失敗しました');
@@ -51,27 +84,28 @@ export default function SelectClassPage() {
     fetchClasses();
   }, [router]);
 
+  // 授業が変更されたら、時間の選択をリセットする
   const handleClassChange = (e) => {
-    const classId = e.target.value; 
-    const newClass = classes.find((c) => c.id == classId);
-    setSelectedClass(newClass);
+    setSelectedClassId(e.target.value);
     setSelectedSessionId('');
   };
+
+  // 現在選択されている授業オブジェクトを取得（表示用）
+  const currentClass = classes.find(c => c.id === selectedClassId);
 
   const handleComplete = async () => {
     if (!applicantId) {
       alert("ログイン情報が見つかりません。再度ログインしてください。");
-      router.push('/auth/login');
+      return;
+    }
+
+    if (!selectedClassId) {
+      alert("授業を選択してください");
       return;
     }
 
     if (!selectedSessionId) {
       alert("希望の時間を選択してください");
-      return;
-    }
-
-    if (!selectedClass || !selectedClass.id) {
-      alert("授業情報が正しく選択されていません");
       return;
     }
 
@@ -83,7 +117,7 @@ export default function SelectClassPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           applicant_id: applicantId,
-          class_id: selectedClass.id,
+          class_id: selectedClassId,
           session_id: selectedSessionId
         }),
       });
@@ -130,7 +164,7 @@ export default function SelectClassPage() {
 
         {/* フォームカード */}
         <div className="bg-gray-700 p-8 rounded-lg shadow-lg border border-gray-600">
-          <h2 className="text-2xl font-bold mb-2 text-center">受講授業の選択</h2>
+          <h2 className="text-2xl font-bold mb-6 text-center">受講授業の選択</h2>
 
           <div className="space-y-6">
             
@@ -139,16 +173,20 @@ export default function SelectClassPage() {
               <label className="block text-sm font-bold text-gray-300 mb-2">イベント（授業内容）</label>
               <select 
                 className="w-full bg-gray-800 border border-gray-500 text-white rounded p-3 focus:outline-none focus:border-blue-500 transition-colors"
-                value={selectedClass ? selectedClass.id : ''} 
+                value={selectedClassId} 
                 onChange={handleClassChange}
               >
                 {classes.map((cls) => (
                   <option key={cls.id} value={cls.id}>{cls.name}</option>
                 ))}
               </select>
-              <p className="text-sm text-gray-400 mt-2 leading-relaxed bg-gray-800 p-3 rounded border border-gray-600/50">
-                {selectedClass ? selectedClass.description : ''}
-              </p>
+              
+              {/* 説明文表示 */}
+              {currentClass && (
+                <div className="text-sm text-gray-400 mt-2 leading-relaxed bg-gray-800 p-3 rounded border border-gray-600/50 min-h-[60px]">
+                  {currentClass.description || "説明はありません"}
+                </div>
+              )}
             </div>
 
             {/* 2. 時間選択 */}
@@ -158,39 +196,29 @@ export default function SelectClassPage() {
                 className="w-full bg-gray-800 border border-gray-500 text-white rounded p-3 focus:outline-none focus:border-blue-500 transition-colors"
                 value={selectedSessionId} 
                 onChange={(e) => setSelectedSessionId(e.target.value)}
+                disabled={!currentClass || currentClass.sessions.length === 0}
               >
-                <option value="">-- 時間を選択してください --</option>
-                {selectedClass && selectedClass.sessions && selectedClass.sessions.map((sess) => (
+                <option value="">
+                  {currentClass && currentClass.sessions.length === 0 
+                    ? "※開催予定がありません" 
+                    : "-- 時間を選択してください --"}
+                </option>
+                
+                {currentClass && currentClass.sessions.map((sess) => (
                   <option key={sess.id} value={sess.id}>{sess.label}</option>
                 ))}
               </select>
             </div>
 
-            {/* 3. PDFリンク */}
-            {selectedClass && (
-              <div className="text-right pt-2">
-                {selectedClass.pdfLink && selectedClass.pdfLink !== '#' ? (
-                  <a 
-                    href={selectedClass.pdfLink} 
-                    target="_blank" 
-                    rel="noopener noreferrer" 
-                    className="text-blue-400 hover:text-blue-300 text-sm font-bold underline transition-colors"
-                  >
-                    📄 授業情報PDFをダウンロード
-                  </a>
-                ) : (
-                  <span className="text-gray-500 text-xs">※ PDF資料はありません</span>
-                )}
-              </div>
-            )}
-
             {/* 送信ボタン */}
             <div className="pt-4">
               <button 
                 onClick={handleComplete} 
-                disabled={isSubmitting}
-                className={`w-full bg-blue-600 text-white font-bold py-4 rounded-lg shadow-md transition-all
-                  ${isSubmitting ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-500 hover:shadow-lg'}`}
+                disabled={isSubmitting || !selectedSessionId}
+                className={`w-full font-bold py-4 rounded-lg shadow-md transition-all
+                  ${(isSubmitting || !selectedSessionId)
+                    ? 'bg-gray-600 text-gray-400 cursor-not-allowed' 
+                    : 'bg-blue-600 text-white hover:bg-blue-500 hover:shadow-lg'}`}
               >
                 {isSubmitting ? '送信中...' : '申し込む'}
               </button>

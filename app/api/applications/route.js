@@ -1,49 +1,89 @@
 import { NextResponse } from 'next/server';
-import db from '@/module'; 
-import { v4 as uuidv4 } from 'uuid'; 
+import db from '@/module';
+
+// ★修正: 学生は合計3回まで
+const MAX_TOTAL_PER_STUDENT = 3; 
 
 export async function POST(request) {
   try {
-    const body = await request.json();
-    // フロントエンドから class_id も受け取る必要があります
-    const { applicant_id, session_id, class_id } = body;
+    const { applicant_id, class_id, session_id } = await request.json();
 
-    // バリデーション: class_id も必須チェックに追加
-    if (!applicant_id || !session_id || !class_id) {
-      return NextResponse.json(
-        { message: '必要な情報（ID）が不足しています' },
-        { status: 400 }
-      );
+    if (!applicant_id || !class_id || !session_id) {
+      return NextResponse.json({ message: '情報が不足しています' }, { status: 400 });
     }
 
-    // ID生成: char(32) に合わせるため、UUIDのハイフンを除去します
-    const application_id = uuidv4().replace(/-/g, '');
+    // --- チェック1: 合計申し込み数のチェック ---
+    const [totalRows] = await db.execute(
+      'SELECT COUNT(*) as count FROM application WHERE applicant_id = ?', 
+      [applicant_id]
+    );
+    const currentTotal = totalRows[0].count;
 
-    // データベースに保存
-    // apply_datetime と lottery_status はデフォルト値があるので指定しません
-    const query = `
-      INSERT INTO application (application_id, applicant_id, class_id, session_id)
-      VALUES (?, ?, ?, ?)
-    `;
+    if (currentTotal >= MAX_TOTAL_PER_STUDENT) {
+       return NextResponse.json({ 
+         message: `申し込みは1人合計${MAX_TOTAL_PER_STUDENT}回までです。（現在${currentTotal}件申し込み済み）` 
+       }, { status: 400 });
+    }
+
+    // --- チェック2: すでに同じ授業に申し込んでいるか ---
+    const [duplicateRows] = await db.execute(
+      'SELECT COUNT(*) as count FROM application WHERE applicant_id = ? AND session_id = ?',
+      [applicant_id, session_id]
+    );
+    if (duplicateRows[0].count > 0) {
+      return NextResponse.json({ message: 'すでにこの授業には申し込んでいます' }, { status: 400 });
+    }
+
+    // --- チェック3: 同一日・同時間の重複 ---
+    // 時間被りだけはチェックする（体は一つなので）
+    // 今回申し込む授業の日時を取得
+    const [targetRows] = await db.execute(
+      `SELECT DATE_FORMAT(class_date, '%Y-%m-%d') as date_str, start_time, max_capacity, current_registrants 
+       FROM mock_session WHERE session_id = ?`,
+      [session_id]
+    );
+
+    if (targetRows.length === 0) {
+      return NextResponse.json({ message: '授業データが見つかりません' }, { status: 404 });
+    }
+    const targetSession = targetRows[0];
+    const targetDateStr = targetSession.date_str;
+
+    const [timeRows] = await db.execute(`
+      SELECT COUNT(*) as count 
+      FROM application a
+      JOIN mock_session s ON a.session_id = s.session_id
+      WHERE a.applicant_id = ? 
+      AND DATE_FORMAT(s.class_date, '%Y-%m-%d') = ? 
+      AND s.start_time = ?`,
+      [applicant_id, targetDateStr, targetSession.start_time]
+    );
     
-    await db.execute(query, [application_id, applicant_id, class_id, session_id]);
+    if (timeRows[0].count > 0) {
+        return NextResponse.json({ message: '同じ日時に別の授業を申し込み済みです' }, { status: 400 });
+    }
+
+    // --- チェック4: 定員チェック ---
+    if (targetSession.current_registrants >= targetSession.max_capacity) {
+      return NextResponse.json({ message: '定員に達しているため申し込めません' }, { status: 400 });
+    }
+
+    // --- 登録実行 ---
+    const applicationId = crypto.randomUUID();
+    await db.execute(
+      'INSERT INTO application (application_id, applicant_id, class_id, session_id, lottery_status) VALUES (?, ?, ?, ?, ?)',
+      [applicationId, applicant_id, class_id, session_id, 'PENDING']
+    );
+
+    await db.execute(
+      'UPDATE mock_session SET current_registrants = current_registrants + 1 WHERE session_id = ?',
+      [session_id]
+    );
 
     return NextResponse.json({ message: '申し込みが完了しました' }, { status: 201 });
 
   } catch (error) {
     console.error('Application Error:', error);
-    
-    // 重複エラー (ERROR 1062)
-    if (error.code === 'ER_DUP_ENTRY') {
-      return NextResponse.json(
-        { message: 'すでに申し込み済みです' },
-        { status: 409 }
-      );
-    }
-
-    return NextResponse.json(
-      { message: 'サーバーエラーが発生しました', error: error.message },
-      { status: 500 }
-    );
+    return NextResponse.json({ message: 'サーバーエラーが発生しました' }, { status: 500 });
   }
 }

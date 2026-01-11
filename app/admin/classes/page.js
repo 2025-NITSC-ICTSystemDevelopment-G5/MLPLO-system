@@ -6,20 +6,20 @@ import Link from 'next/link';
 export default function AdminClasses() {
   const [classes, setClasses] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [teachers, setTeachers] = useState(['']);
 
   // 新規登録用フォーム状態
   const [newClass, setNewClass] = useState({
     class_name: '',
-    teacher_name: '',
     room_name: '',
-    description: '', // 追加: DBにあるので入力できるようにする
+    description: '',
     max_capacity: 30,
     session_date: '',
     start_time: '',
     end_time: ''
   });
 
-  // 1. データ取得
+  // データ取得
   const fetchClasses = async () => {
     try {
       const res = await fetch('/api/classes');
@@ -38,22 +38,33 @@ export default function AdminClasses() {
     fetchClasses();
   }, []);
 
-  // 2. 登録処理
+  // 教員入力操作
+  const handleTeacherChange = (index, value) => {
+    const updated = [...teachers];
+    updated[index] = value;
+    setTeachers(updated);
+  };
+  const addTeacher = () => setTeachers([...teachers, '']);
+  const removeTeacher = (index) => {
+    const updated = [...teachers];
+    updated.splice(index, 1);
+    setTeachers(updated);
+  };
+
+  // 登録処理
   const handleRegister = async (e) => {
     e.preventDefault();
-    
-    // ★重要: DBが char(32) なので、UUIDのハイフンを取り除いて32文字にする
     const classId = crypto.randomUUID().replace(/-/g, '');
     const sessionId = crypto.randomUUID().replace(/-/g, '');
+    const teacherNameStr = teachers.filter(t => t.trim() !== '').join('、');
 
     const payload = {
       class_id: classId,
       class_name: newClass.class_name,
-      teacher_name: newClass.teacher_name,
+      teacher_name: teacherNameStr,
       room_name: newClass.room_name,
       description: newClass.description,
       max_capacity: Number(newClass.max_capacity),
-      // セッション情報を配列で送る
       sessions: [
         {
           session_id: sessionId,
@@ -74,11 +85,9 @@ export default function AdminClasses() {
 
       if (res.ok) {
         alert('登録しました');
-        fetchClasses(); // 一覧を更新
-        // フォームリセット
+        fetchClasses(); 
         setNewClass({
           class_name: '',
-          teacher_name: '',
           room_name: '',
           description: '',
           max_capacity: 30,
@@ -86,24 +95,29 @@ export default function AdminClasses() {
           start_time: '',
           end_time: ''
         });
+        setTeachers(['']);
       } else {
-        alert('登録に失敗しました');
+        // ★ここを修正しました
+        // サーバーからのエラーメッセージ（JSON）を受け取って表示します
+        const errorData = await res.json();
+        alert(errorData.message || '登録に失敗しました');
       }
     } catch (err) {
-      console.error(err);
-      alert('エラーが発生しました');
+      alert('通信エラーが発生しました');
     }
   };
 
   const handleDelete = async (classId) => {
     if(!confirm('本当に削除しますか？')) return;
-    
     try {
       const res = await fetch(`/api/classes/${classId}`, { method: 'DELETE' });
+      
       if (res.ok) {
         fetchClasses();
       } else {
-        alert('削除に失敗しました');
+        // 削除失敗時もサーバーのメッセージを表示するように修正
+        const errorData = await res.json();
+        alert(errorData.message || '削除に失敗しました');
       }
     } catch (err) {
       alert('通信エラーが発生しました');
@@ -111,51 +125,85 @@ export default function AdminClasses() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-6">
+    <div className="h-screen bg-gray-100 flex flex-col overflow-hidden">
+      
+      {/* ヘッダーエリア */}
+      <div className="bg-white shadow-sm z-10 shrink-0">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
           <h1 className="text-2xl font-bold text-gray-800">模擬授業管理</h1>
-          <Link href="/admin/dashboard" className="text-sm text-gray-500 hover:underline">管理者メニューへ戻る</Link>
+          <Link href="/admin/dashboard" className="text-sm text-gray-500 hover:underline">
+            管理者メニューへ戻る
+          </Link>
         </div>
+      </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+      {/* メインコンテンツエリア */}
+      <div className="flex-1 p-6 overflow-hidden">
+        <div className="max-w-7xl mx-auto h-full grid grid-cols-1 lg:grid-cols-3 gap-6">
           
-          {/* 左側: 新規登録フォーム */}
-          <div className="lg:col-span-1 bg-white p-6 rounded shadow sticky top-6">
-            <h2 className="text-lg font-bold mb-6 text-blue-600 border-b pb-2">授業を追加</h2>
-            <form onSubmit={handleRegister} className="space-y-4">
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">授業名</label>
-                <input 
-                  type="text" required
-                  value={newClass.class_name}
-                  onChange={e => setNewClass({...newClass, class_name: e.target.value})}
-                  className="w-full border p-2 rounded text-black" 
-                  placeholder="例: プログラミング入門"
-                />
-              </div>
-              
-              {/* 説明文 (description) 追加 */}
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">授業説明</label>
-                <textarea 
-                  value={newClass.description}
-                  onChange={e => setNewClass({...newClass, description: e.target.value})}
-                  className="w-full border p-2 rounded text-black h-20 text-sm" 
-                  placeholder="授業の概要を入力..."
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
+          {/* 左側: 入力フォーム */}
+          <div className="lg:col-span-1 bg-white rounded shadow flex flex-col overflow-hidden h-full">
+            <div className="p-4 bg-blue-50 border-b border-blue-100 shrink-0">
+              <h2 className="text-lg font-bold text-blue-800">授業を追加</h2>
+            </div>
+            
+            <div className="p-6 overflow-y-auto">
+              <form onSubmit={handleRegister} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">担当教職員</label>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">授業名</label>
                   <input 
-                    type="text" 
-                    value={newClass.teacher_name}
-                    onChange={e => setNewClass({...newClass, teacher_name: e.target.value})}
+                    type="text" required
+                    value={newClass.class_name}
+                    onChange={e => setNewClass({...newClass, class_name: e.target.value})}
                     className="w-full border p-2 rounded text-black" 
+                    placeholder="例: プログラミング入門"
                   />
                 </div>
+                
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">授業説明</label>
+                  <textarea 
+                    value={newClass.description}
+                    onChange={e => setNewClass({...newClass, description: e.target.value})}
+                    className="w-full border p-2 rounded text-black h-24 text-sm" 
+                    placeholder="授業の概要を入力..."
+                  />
+                </div>
+
+                {/* 教員入力 */}
+                <div className="bg-gray-50 p-3 rounded border border-gray-200">
+                  <label className="block text-sm font-bold text-gray-700 mb-2">
+                    担当教職員 <span className="text-xs text-red-500 font-normal">(複数可)</span>
+                  </label>
+                  {teachers.map((teacher, index) => (
+                    <div key={index} className="flex gap-2 mb-2">
+                      <input 
+                        type="text" 
+                        value={teacher}
+                        onChange={(e) => handleTeacherChange(index, e.target.value)}
+                        className="w-full border p-2 rounded text-black text-sm" 
+                        placeholder={index === 0 ? "例: 山田太郎" : "追加の教員名"}
+                      />
+                      {teachers.length > 1 && (
+                        <button 
+                          type="button"
+                          onClick={() => removeTeacher(index)}
+                          className="bg-red-500 text-white px-3 rounded hover:bg-red-600 font-bold"
+                        >
+                          -
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button 
+                    type="button"
+                    onClick={addTeacher}
+                    className="w-full bg-green-600 text-white py-2 rounded text-sm font-bold hover:bg-green-500 shadow-sm mt-1"
+                  >
+                    ＋ 教員を追加
+                  </button>
+                </div>
+
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-1">実施場所</label>
                   <input 
@@ -165,84 +213,104 @@ export default function AdminClasses() {
                     className="w-full border p-2 rounded text-black" 
                   />
                 </div>
-              </div>
 
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">定員</label>
-                <input 
-                  type="number" 
-                  value={newClass.max_capacity}
-                  onChange={e => setNewClass({...newClass, max_capacity: e.target.value})}
-                  className="w-full border p-2 rounded text-black" 
-                />
-              </div>
-              
-              <div className="bg-gray-50 p-3 rounded">
-                <p className="text-xs font-bold mb-2 text-gray-600">実施日時</p>
-                <input 
-                  type="date" required
-                  value={newClass.session_date}
-                  onChange={e => setNewClass({...newClass, session_date: e.target.value})}
-                  className="w-full border p-1 mb-2 text-sm text-black" 
-                />
-                <div className="flex gap-2">
-                  <input type="time" required 
-                    value={newClass.start_time}
-                    onChange={e => setNewClass({...newClass, start_time: e.target.value})}
-                    className="border p-1 w-1/2 text-sm text-black" />
-                  <input type="time" required 
-                    value={newClass.end_time}
-                    onChange={e => setNewClass({...newClass, end_time: e.target.value})}
-                    className="border p-1 w-1/2 text-sm text-black" />
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">
+                    定員 <span className="text-xs text-red-500 font-normal">(1~40名)</span>
+                  </label>
+                  <input 
+                    type="number" 
+                    min="1"
+                    max="40"
+                    value={newClass.max_capacity}
+                    onChange={e => {
+                      let val = parseInt(e.target.value);
+                      if (val > 40) val = 40;
+                      if (val < 1) val = 1;
+                      setNewClass({...newClass, max_capacity: val});
+                    }}
+                    className="w-full border p-2 rounded text-black" 
+                  />
                 </div>
-              </div>
+                
+                <div className="bg-gray-50 p-3 rounded">
+                  <p className="text-xs font-bold mb-2 text-gray-600">実施日時</p>
+                  <input 
+                    type="date" required
+                    value={newClass.session_date}
+                    onChange={e => setNewClass({...newClass, session_date: e.target.value})}
+                    className="w-full border p-1 mb-2 text-sm text-black" 
+                  />
+                  <div className="flex gap-2">
+                    <input type="time" required 
+                      value={newClass.start_time}
+                      onChange={e => setNewClass({...newClass, start_time: e.target.value})}
+                      className="border p-1 w-1/2 text-sm text-black" />
+                    <input type="time" required 
+                      value={newClass.end_time}
+                      onChange={e => setNewClass({...newClass, end_time: e.target.value})}
+                      className="border p-1 w-1/2 text-sm text-black" />
+                  </div>
+                </div>
 
-              <button className="w-full bg-blue-600 text-white py-3 rounded font-bold hover:bg-blue-700 shadow transition">
-                登録
-              </button>
-            </form>
+                <div className="pt-2">
+                  <button className="w-full bg-blue-600 text-white py-3 rounded font-bold hover:bg-blue-700 shadow transition">
+                    登録する
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
 
-          {/* 右側: 一覧表示 */}
-          <div className="lg:col-span-2 bg-white rounded shadow overflow-hidden">
-            <div className="p-4 bg-gray-50 border-b flex justify-between items-center">
+          {/* 右側: 一覧リスト */}
+          <div className="lg:col-span-2 bg-white rounded shadow flex flex-col overflow-hidden h-full">
+            <div className="p-4 bg-gray-50 border-b flex justify-between items-center shrink-0">
               <h2 className="font-bold text-gray-700">登録済み授業一覧</h2>
+              <span className="text-xs text-gray-500 font-bold bg-white px-2 py-1 rounded border">
+                合計 {classes.length} 件
+              </span>
             </div>
             
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm text-left text-gray-600">
-                <thead className="bg-gray-100 border-b">
+            <div className="overflow-y-auto flex-grow">
+              <table className="w-full text-sm text-left text-gray-600 relative">
+                <thead className="bg-gray-100 border-b sticky top-0 z-10 shadow-sm">
                   <tr>
-                    <th className="px-4 py-3">授業名</th>
-                    <th className="px-4 py-3">詳細</th>
-                    <th className="px-4 py-3">日時・場所</th>
+                    <th className="px-4 py-3 w-1/3">授業名・説明</th>
+                    <th className="px-4 py-3 w-1/4">担当・定員</th>
+                    <th className="px-4 py-3 w-1/4">日時・場所</th>
                     <th className="px-4 py-3 text-center">操作</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {classes.map((cls, idx) => (
-                    <tr key={idx} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 font-bold text-gray-800">
-                        {cls.class_name}
-                        <div className="text-xs text-gray-400 font-normal truncate max-w-[150px]">{cls.description}</div>
+                    <tr key={idx} className="hover:bg-gray-50 transition">
+                      <td className="px-4 py-4 align-top">
+                        <div className="font-bold text-gray-800 text-base mb-1">{cls.class_name}</div>
+                        <div className="text-xs text-gray-500 whitespace-pre-wrap leading-relaxed">{cls.description}</div>
                       </td>
-                      <td className="px-4 py-3">
-                        <div><span className="text-xs bg-gray-200 px-1 rounded">教員</span> {cls.teacher_name}</div>
-                        <div className="mt-1"><span className="text-xs bg-gray-200 px-1 rounded">定員</span> {cls.max_capacity}名</div>
+                      <td className="px-4 py-4 align-top">
+                        <div className="mb-2">
+                          <span className="text-xs bg-gray-200 text-gray-700 px-2 py-0.5 rounded mr-1">教員</span>
+                          <span className="text-gray-800 font-medium">{cls.teacher_name}</span>
+                        </div>
+                        <div>
+                          <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded mr-1">定員</span>
+                          <span className="font-bold">{cls.max_capacity}名</span>
+                        </div>
                       </td>
-                      <td className="px-4 py-3 text-xs">
-                        <div className="font-bold mb-1">{cls.room_name}</div>
+                      <td className="px-4 py-4 align-top text-xs">
+                        <div className="font-bold text-sm text-gray-700 mb-1">📍 {cls.room_name}</div>
                         {cls.class_date ? (
-                           <>
-                             {new Date(cls.class_date).toLocaleDateString()} <br/>
-                             {cls.start_time?.substring(0,5)}～{cls.end_time?.substring(0,5)}
-                           </>
+                           <div className="text-gray-600 bg-gray-50 p-1 rounded inline-block border">
+                             📅 {new Date(cls.class_date).toLocaleDateString()} <br/>
+                             ⏰ {cls.start_time?.substring(0,5)} ～ {cls.end_time?.substring(0,5)}
+                           </div>
                         ) : '日時未定'}
                       </td>
-                      <td className="px-4 py-3 text-center">
+                      <td className="px-4 py-4 align-middle text-center">
                         <button 
                           onClick={() => handleDelete(cls.class_id)}
-                          className="bg-red-100 text-red-600 px-3 py-1 rounded hover:bg-red-200 text-xs font-bold"
+                          className="bg-white border border-red-300 text-red-600 px-3 py-1.5 rounded hover:bg-red-50 text-xs font-bold transition shadow-sm"
                         >
                           削除
                         </button>
@@ -250,7 +318,7 @@ export default function AdminClasses() {
                     </tr>
                   ))}
                   {classes.length === 0 && !loading && (
-                    <tr><td colSpan="4" className="p-8 text-center text-gray-400">登録されている授業はありません</td></tr>
+                    <tr><td colSpan="4" className="p-10 text-center text-gray-400">登録されている授業はありません</td></tr>
                   )}
                 </tbody>
               </table>
