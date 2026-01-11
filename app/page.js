@@ -35,10 +35,6 @@ export default function TopPage() {
             </Link>
           </div>
         </div>
-        
-        <p className="mt-8 text-xs text-gray-400">
-          © 2025 S National College of Technology
-        </p>
       </div>
     </div>
   );

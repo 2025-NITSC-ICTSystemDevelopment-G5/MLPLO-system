@@ -75,10 +75,6 @@ export default function AdminPeriod() {
             <h2 className="text-lg font-bold text-gray-700 mb-4 border-l-4 border-blue-500 pl-2">
               申し込み受付期間
             </h2>
-            <div className="bg-blue-50 p-4 mb-4 rounded text-sm text-blue-800 border border-blue-100">
-               この期間内のみ、学生画面から申し込みが可能になります。<br/>
-               期間外の場合、学生には「受付期間外」と表示されます。
-            </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -107,15 +103,10 @@ export default function AdminPeriod() {
           {/* --- 抽選発表エリア --- */}
           <div>
             <h2 className="text-lg font-bold text-gray-700 mb-4 border-l-4 border-orange-500 pl-2">
-              抽選結果発表
+              抽選発表日時
             </h2>
-            <div className="bg-orange-50 p-4 mb-4 rounded text-sm text-orange-800 border border-orange-100">
-               この日時を過ぎると、学生のマイページに当落結果（当選・落選）が表示されます。<br/>
-               それまでは「抽選待ち」と表示されます。
-            </div>
 
             <div>
-              <label className="block text-sm font-bold text-gray-600 mb-2">結果発表日時</label>
               <input 
                 type="datetime-local" 
                 /* ここに text-black を追加しました */

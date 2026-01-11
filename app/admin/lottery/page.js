@@ -157,18 +157,13 @@ export default function AdminLottery() {
           
           {/* STEP 1: 抽選実行 */}
           {lotteryStatus === 'PENDING' && stats.length > 0 && (
-            <div className="bg-yellow-50 p-6 rounded border border-yellow-200">
-                <h3 className="font-bold text-lg mb-2 text-yellow-800">ステップ1: 当選者の確定</h3>
-                <p className="text-sm text-gray-600 mb-4">
-                    定員オーバーのクラスに対して抽選を行い、重複などの条件チェックを含めて当選者を確定させます。<br/>
-                    （定員割れクラスは自動的に全員当選となります）
-                </p>
+            <div>
                 <button 
                     onClick={handleRunLottery}
                     disabled={processing}
                     className="bg-orange-600 text-white font-bold py-3 px-12 rounded-full shadow hover:bg-orange-500 disabled:bg-gray-400 transition"
                 >
-                    {processing ? '処理中...' : '抽選ロジックを実行'}
+                    {processing ? '処理中...' : '抽選'}
                 </button>
             </div>
           )}
@@ -176,10 +171,10 @@ export default function AdminLottery() {
           {/* STEP 2: メール送信 */}
           {lotteryStatus === 'DONE' && (
             <div className="bg-blue-50 p-6 rounded border border-blue-200 animate-fade-in">
-                <h3 className="font-bold text-lg mb-2 text-blue-800">ステップ2: 結果メールの送信</h3>
+                <h3 className="font-bold text-lg mb-2 text-blue-800">結果メールの送信</h3>
                 <p className="text-sm text-gray-600 mb-4">
-                    抽選処理が完了しました。上の表で当選数を確認してください。<br/>
-                    問題なければ、全申込者に対して結果メールを送信してください。
+                    抽選処理が完了しました。表より当選数を確認してください。<br/>
+                    問題なければ全申込者に対して結果メールを送信してください。
                 </p>
                 <button 
                     onClick={handleSendMail}
@@ -194,25 +189,13 @@ export default function AdminLottery() {
           {/* 完了後 */}
           {lotteryStatus === 'MAILED' && (
              <div className="bg-green-50 p-6 rounded-lg border border-green-200 text-center">
-                <h3 className="text-xl font-bold text-green-700 mb-2">全工程が完了しました</h3>
-                <p className="text-gray-600 mb-6">メール送信済みです。</p>
+                <p className="text-gray-600 mb-6">メール送信済み</p>
                 <Link href="/admin/dashboard" className="text-blue-600 hover:underline font-bold">
                   管理者メニューへ戻る
                 </Link>
              </div>
           )}
         </div>
-
-        {/* ★追加: ひとつ前のページに戻るボタン */}
-        <div className="mt-12 text-center">
-           <button 
-             onClick={() => router.back()} 
-             className="text-gray-500 hover:text-gray-800 hover:underline transition px-4 py-2 text-sm"
-           >
-             ← ひとつ前のページに戻る
-           </button>
-        </div>
-
       </div>
     </div>
   );
