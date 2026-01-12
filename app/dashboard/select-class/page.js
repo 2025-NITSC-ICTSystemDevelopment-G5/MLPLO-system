@@ -39,8 +39,8 @@ export default function SelectClassPage() {
         
         // ★重要: APIからのフラットなデータを「授業ごと」にグループ化する
         const grouped = {};
+// --- 修正後のグループ化ロジック ---
         rawData.forEach(item => {
-          // まだその授業がリストになければ作成
           if (!grouped[item.class_id]) {
             grouped[item.class_id] = {
               id: item.class_id,
@@ -49,17 +49,25 @@ export default function SelectClassPage() {
               sessions: []
             };
           }
-          // セッション（日時）情報があれば追加
+        
           if (item.session_id) {
-            // 表示用の日時文字列を作成
-            const dateStr = item.class_date_str || item.class_date; // APIによってキー名が違う場合に対応
-            const timeStr = (item.start_time_str || item.start_time || '').substring(0, 5);
-            
+            // 1. 日付を「2026/01/11」形式にする
+            const d = new Date(item.class_date);
+            const dateStr = `${d.getFullYear()}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getDate().toString().padStart(2, '0')}`;
+          
+            // 2. 時間を「12:00」形式にする（TやZを考慮して後ろから切り取るのではなく、必要な部分だけ指定）
+            // もし "2026-01-11T12:00:00.000Z" なら T の後を取り出す
+            let timeStr = item.start_time || "";
+            if (timeStr.includes('T')) {
+              timeStr = timeStr.split('T')[1].substring(0, 5);
+            } else {
+              timeStr = timeStr.substring(0, 5);
+            }
+          
+            // 3. 日付と時間をくっつけて「ラベル」にする
             grouped[item.class_id].sessions.push({
               id: item.session_id,
-              label: `${dateStr} ${timeStr}～`,
-              // ソート用に生の日付も持っておく
-              sortKey: `${dateStr} ${timeStr}`
+              label: `${dateStr} ${timeStr}～`, // ここで「日付 時間」の表示になる
             });
           }
         });
@@ -205,7 +213,9 @@ export default function SelectClassPage() {
                 </option>
                 
                 {currentClass && currentClass.sessions.map((sess) => (
-                  <option key={sess.id} value={sess.id}>{sess.label}</option>
+                  <option key={sess.id} value={sess.id}>
+                    {sess.label.includes('T') ? sess.label.split('T')[1].substring(0, 5) : sess.label}
+                  </option>
                 ))}
               </select>
             </div>

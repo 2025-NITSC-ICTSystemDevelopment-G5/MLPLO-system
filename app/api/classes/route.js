@@ -10,12 +10,12 @@ export async function GET() {
         c.class_name, 
         c.teacher_name, 
         c.room_name, 
-        c.max_capacity, 
         c.description,
         s.session_id,
-        s.class_date,  /* ★ここを修正: 単純に class_date として取得 */
+        s.class_date,
         s.start_time, 
-        s.end_time
+        s.end_time,
+        s.max_capacity /* ★修正: mock_session側の定員を取得するように変更 */
       FROM mock_class c
       LEFT JOIN mock_session s ON c.class_id = s.class_id
       ORDER BY c.created_at DESC
@@ -39,14 +39,11 @@ export async function POST(request) {
     // 1日3枠の制限チェック
     if (sessions && sessions.length > 0) {
       const targetDate = sessions[0].class_date; 
-      
-      // 日付が空でないかチェック
       if (targetDate) {
         const [rows] = await db.execute(
           "SELECT COUNT(*) as count FROM mock_session WHERE DATE_FORMAT(class_date, '%Y-%m-%d') = ?",
           [targetDate]
         );
-        
         if (rows[0].count >= 3) {
           return NextResponse.json(
             { message: `この日（${targetDate}）はすでに3つの授業枠が埋まっており、これ以上登録できません。` }, 
@@ -56,21 +53,20 @@ export async function POST(request) {
       }
     }
 
-    // 1. mock_class に保存
+    // 1. mock_class に保存 (★修正: カラムから max_capacity を削除)
     await db.execute(
       `INSERT INTO mock_class 
-       (class_id, class_name, teacher_name, room_name, max_capacity, description, created_by_admin_id) 
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+       (class_id, class_name, teacher_name, room_name, description, created_by_admin_id) 
+       VALUES (?, ?, ?, ?, ?, ?)`,
       [
         class_id, class_name, teacher_name ?? null, room_name ?? null, 
-        max_capacity ?? null, description ?? null, 'admin'
+        description ?? null, 'admin'
       ]
     );
 
-    // 2. mock_session に保存
+    // 2. mock_session に保存 (★定員はこちらに保存される)
     if (sessions && sessions.length > 0) {
       const s = sessions[0]; 
-      // 日時が空の場合は保存しない、またはNULLで保存
       if (s.class_date) {
         await db.execute(
           `INSERT INTO mock_session 
