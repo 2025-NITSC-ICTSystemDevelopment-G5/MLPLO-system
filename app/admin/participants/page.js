@@ -19,11 +19,11 @@ export default function AdminParticipants() {
         const classData = classRes.ok ? await classRes.json() : [];
         setClasses(classData);
 
-        // 2. 全申込者リストを取得し、「当選者」のみに絞り込む
+        // 2. 全申込者リストを取得
         const res = await fetch('/api/admins/applicants');
         if (res.ok) {
           const allData = await res.json();
-          // ★ここでフィルタリング: lottery_status が 'WIN' の人のみ抽出
+          // lottery_status が 'WIN' の人のみ抽出
           const winners = allData.filter(app => app.lottery_status === 'WIN');
           setParticipants(winners);
         }
@@ -38,18 +38,18 @@ export default function AdminParticipants() {
   }, []);
 
   // 選択された授業でフィルタリング
+  // ※ API側のプロパティ名 class_id を使用
   const filteredParticipants = selectedClassId === "ALL" 
     ? participants 
-    : participants.filter(app => app.class_id === selectedClassId);
+    : participants.filter(app => String(app.class_id) === String(selectedClassId));
 
-  // 選択中の授業名
+  // 選択中の授業名を取得
   const currentClassName = selectedClassId === "ALL" 
     ? "全科目" 
-    : classes.find(c => c.id === selectedClassId)?.name || "不明な授業";
+    : classes.find(c => String(c.class_id) === String(selectedClassId))?.class_name || "不明な授業";
 
-  // CSVダウンロード処理（当選者リスト）
+  // CSVダウンロード処理
   const handleDownloadCsv = () => {
-    // ★重要: mode=winners で当選者のみ出力
     window.location.href = '/api/management/export/csv?mode=winners';
   };
 
@@ -59,7 +59,6 @@ export default function AdminParticipants() {
     <div className="min-h-screen bg-gray-100 p-6">
       <div className="max-w-6xl mx-auto">
         <div className="flex justify-between items-center mb-8">
-          {/* タイトルを変更 */}
           <h1 className="text-2xl font-bold text-gray-800">参加者一覧 (当選者のみ)</h1>
           <Link href="/admin/dashboard" className="text-sm text-gray-500 hover:text-gray-800 hover:underline">
             管理者メニューへ戻る
@@ -70,7 +69,6 @@ export default function AdminParticipants() {
           
           {/* 左サイドバー: 科目選択 */}
           <div className="md:col-span-1 bg-white rounded shadow overflow-hidden sticky top-6">
-            {/* 色を青系（参加者カラー）に変更 */}
             <div className="bg-blue-800 text-white p-3 font-bold text-center">
               参加科目選択
             </div>
@@ -88,15 +86,15 @@ export default function AdminParticipants() {
 
               {classes.map((cls) => (
                 <button
-                  key={cls.id}
-                  onClick={() => setSelectedClassId(cls.id)}
+                  key={cls.class_id}
+                  onClick={() => setSelectedClassId(cls.class_id)}
                   className={`w-full text-left px-4 py-3 rounded transition ${
-                    selectedClassId === cls.id 
+                    selectedClassId === cls.class_id 
                       ? 'bg-blue-100 text-blue-900 font-bold border-l-4 border-blue-600' 
                       : 'hover:bg-gray-50 text-gray-700'
                   }`}
                 >
-                  {cls.name}
+                  {cls.class_name}
                 </button>
               ))}
             </div>
@@ -125,14 +123,14 @@ export default function AdminParticipants() {
                 <tbody>
                   {filteredParticipants.length === 0 ? (
                     <tr>
-                      <td colSpan="5" className="p-6 text-center text-gray-400">
-                        現在、参加者（当選者）はいません<br/>
+                      <td colSpan={selectedClassId === "ALL" ? 5 : 4} className="p-6 text-center text-gray-400">
+                        現在、該当する参加者（当選者）はいません<br/>
                       </td>
                     </tr>
                   ) : (
                     filteredParticipants.map((p, index) => (
                       <tr key={index} className="border-b border-gray-100 hover:bg-gray-50 transition">
-                        <td className="p-3 font-medium">{p.student_name}</td>
+                        <td className="p-3 font-bold text-gray-900">{p.student_name}</td>
                         <td className="p-3 text-gray-600">{p.parent_name}</td>
                         <td className="p-3 text-gray-600">{p.school_name}</td>
                         <td className="p-3 text-center text-gray-600">{p.grade}</td>
@@ -147,10 +145,11 @@ export default function AdminParticipants() {
             <div className="mt-8 flex justify-end">
               <button 
                 onClick={handleDownloadCsv}
-                // ボタンも青系に変更
                 className="bg-blue-800 text-white font-bold py-3 px-6 rounded hover:bg-blue-700 shadow-md flex items-center transition"
               >
-                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                </svg>
                 参加者リストCSVダウンロード
               </button>
             </div>

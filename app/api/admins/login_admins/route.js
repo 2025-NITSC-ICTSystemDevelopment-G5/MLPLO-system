@@ -19,8 +19,7 @@ export async function POST(request) {
 
     const adminUser = rows[0];
 
-    // 2. パスワードの照合 (bcryptで正しく比較)
-    // ★ここを修正: 特例をなくし、本来の比較のみにします
+    // 2. パスワードの照合
     const isMatch = await bcrypt.compare(password, adminUser.password_hash);
 
     if (!isMatch) {
@@ -31,12 +30,23 @@ export async function POST(request) {
     }
 
     // 3. ログイン成功
-    return NextResponse.json({
+    // レスポンスオブジェクトを一旦作成
+    const response = NextResponse.json({
       success: true,
       admin: {
         admin_id: adminUser.admin_id
       }
     });
+
+    // 名前は 'adminToken' とし、値として admin_id を入れます
+    response.cookies.set('adminToken', adminUser.admin_id, {
+      httpOnly: true,    // JavaScriptから読み取れないようにする（セキュリティ）
+      secure: process.env.NODE_ENV === 'production', // 本番環境ではHTTPSのみ
+      maxAge: 60 * 60 * 24, // 1日（秒単位）
+      path: '/',         // サイト全体で有効
+    });
+
+    return response;
 
   } catch (error) {
     console.error('Admin Login Error:', error);
