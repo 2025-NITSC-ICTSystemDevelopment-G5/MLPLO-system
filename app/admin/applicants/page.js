@@ -128,7 +128,7 @@ export default function AdminApplicants() {
                   ) : (
                     filteredApplicants.map((p, index) => (
                       <tr key={index} className="border-b border-gray-100 hover:bg-gray-50 transition">
-                        <td className="p-3 font-medium">{p.student_name}</td>
+                        <td className="p-3 font-bold text-gray-900">{p.student_name}</td>
                         <td className="p-3 text-gray-600">{p.parent_name}</td>
                         <td className="p-3 text-gray-600">{p.school_name}</td>
                         <td className="p-3 text-center text-gray-600">{p.grade}</td>
